@@ -2,9 +2,12 @@ package task
 
 import (
 	"bufio"
+	"bytes"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -40,7 +43,7 @@ func newIPRanges() *IPRanges {
 	}
 }
 
-func (r *IPRanges) fixIP(ip string) string {
+func (r *IPRanges) fixIPMask(ip string) string {
 	// 如果不含有 '/' 则代表不是 IP 段，而是一个单独的 IP，因此需要加上 /32 /128 子网掩码
 	if i := strings.IndexByte(ip, '/'); i < 0 {
 		r.mask = "/32"
@@ -54,11 +57,16 @@ func (r *IPRanges) fixIP(ip string) string {
 	return ip
 }
 
-func (r *IPRanges) parseCIDR(ip string) {
+func (r *IPRanges) parseIP(ip string) {
 	var err error
-	if r.firstIP, r.ipNet, err = net.ParseCIDR(r.fixIP(ip)); err != nil {
+	if r.firstIP, r.ipNet, err = net.ParseCIDR(r.fixIPMask(ip)); err != nil {
 		log.Fatalln("ParseCIDR err", err)
 	}
+	if IPv6 {
+		r.chooseIPv6()
+		return
+	}
+	r.chooseIPv4()
 }
 
 func (r *IPRanges) appendIPv4(d byte) {
@@ -134,6 +142,9 @@ func (r *IPRanges) chooseIPv6() {
 }
 
 func loadIPRanges() []*net.IPAddr {
+	if IPFile == "online" {
+		return getIPs()
+	}
 	if IPFile == "" {
 		IPFile = defaultInputFile
 	}
@@ -145,12 +156,32 @@ func loadIPRanges() []*net.IPAddr {
 	ranges := newIPRanges()
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		ranges.parseCIDR(scanner.Text())
-		if IPv6 {
-			ranges.chooseIPv6()
-			continue
-		}
-		ranges.chooseIPv4()
+		ranges.parseIP(scanner.Text())
+	}
+	return ranges.ips
+}
+
+func getIPs() []*net.IPAddr {
+	path := "ips-v4"
+	if IPv6 {
+		path = "ips-v6"
+	}
+	resp, err := http.Get("https://www.cloudflare.com/" + path)
+	if err != nil {
+		log.Fatalln("get ips err")
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		log.Fatalln("request for ips status not ok", resp.Status)
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalf("parse %s err", path)
+	}
+	ips := bytes.Split(body, []byte("\n"))
+	ranges := newIPRanges()
+	for _, v := range ips {
+		ranges.parseIP(string(v))
 	}
 	return ranges.ips
 }
