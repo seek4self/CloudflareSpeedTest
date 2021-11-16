@@ -15,6 +15,7 @@ import (
 
 var (
 	version, versionNew string
+	configHosts         bool
 )
 
 func init() {
@@ -76,7 +77,8 @@ https://github.com/XIU2/CloudflareSpeedTest
 	flag.Float64Var(&task.MinSpeed, "sl", 0, "下载速度下限")
 	flag.IntVar(&utils.PrintNum, "p", 10, "显示结果数量")
 	flag.StringVar(&utils.Output, "o", "result.csv", "输出结果文件")
-	flag.BoolVar(&task.ConfigV2Ray, "c", false, "配置v2ray")
+	flag.BoolVar(&configHosts, "c", false, "配置hosts")
+	flag.StringVar(&task.Domain, "d", "localhost", "CF DNS 域名")
 	flag.BoolVar(&printVersion, "v", false, "打印程序版本")
 	flag.Usage = func() { fmt.Print(help) }
 	flag.Parse()
@@ -103,6 +105,12 @@ https://github.com/XIU2/CloudflareSpeedTest
 
 func main() {
 	go checkUpdate() // 检查版本更新
+
+	if configHosts {
+		task.ReplaceHosts()
+		endPrint()
+		return
+	}
 
 	fmt.Printf("# XIU2/CloudflareSpeedTest %s \n\n", version)
 
