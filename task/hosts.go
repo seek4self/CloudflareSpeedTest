@@ -26,16 +26,18 @@ func ReplaceHosts() {
 	}
 	ok, ip := readHosts(Domain)
 	if !ok {
-		fmt.Println("Read old ip faild")
+		fmt.Println("Read old IP faild")
 		return
 	}
 	newIP := testNewIP(ip)
-	if len(newIP) == 0 {
+	if newIP == ip {
 		fmt.Println("The current IP is fast enough ")
 		return
 	}
+	if len(newIP) == 0 {
+		return
+	}
 	replaceHosts(Domain, newIP)
-	return
 }
 
 func readHosts(domain string) (ok bool, ip string) {
@@ -63,21 +65,25 @@ func speed2MB(s float64) float64 {
 }
 
 func testNewIP(ip string) string {
-	fmt.Println("Test old ip ...")
+	fmt.Println("Test old IP ...")
 	addr := &net.IPAddr{IP: net.ParseIP(ip)}
 	recv, delay := checkConnection(addr)
 	avgDelay := delay / time.Duration(recv)
 	avgSpeed := speed2MB(downloadHandler(addr))
-	fmt.Printf("Old ip delay: %s speed: %.2f MB/s\n", avgDelay, avgSpeed)
-	if avgDelay < utils.InputMaxDelay || avgSpeed > MinSpeed {
-		return ""
+	fmt.Printf("Old IP delay: %s speed: %.2f MB/s\n", avgDelay, avgSpeed)
+	if (avgDelay < utils.InputMaxDelay && avgDelay > utils.InputMinDelay) || avgSpeed > MinSpeed {
+		return ip
 	}
 	fmt.Println("Test new ip ...")
 	pingData := NewPing().Run().FilterDelay()
 	speedData := TestDownloadSpeed(pingData)
 	// speedData.Print(IPv6)
+	if len(speedData) == 0 {
+		fmt.Println("No IP Found")
+		return ""
+	}
 	newIP := speedData[0]
-	fmt.Printf("New ip delay: %s speed: %.2f MB/s\n", newIP.Delay, speed2MB(newIP.DownloadSpeed))
+	fmt.Printf("New IP delay: %s speed: %.2f MB/s\n", newIP.Delay, speed2MB(newIP.DownloadSpeed))
 	return newIP.IP.String()
 }
 
