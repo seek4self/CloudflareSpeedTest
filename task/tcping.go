@@ -84,8 +84,32 @@ func (p *Ping) start(ip *net.IPAddr) {
 	<-p.control
 }
 
-//bool connectionSucceed float32 time
-func (p *Ping) tcping(ip *net.IPAddr) (bool, time.Duration) {
+func (p *Ping) appendIPData(data *utils.PingData) {
+	p.m.Lock()
+	defer p.m.Unlock()
+	p.csv = append(p.csv, utils.CloudflareIPData{
+		PingData: data,
+	})
+}
+
+// handle tcping
+func (p *Ping) tcpingHandler(ip *net.IPAddr) {
+	recv, totalDlay := checkConnection(ip)
+	p.bar.Grow(1)
+	if recv == 0 {
+		return
+	}
+	data := &utils.PingData{
+		IP:       ip,
+		Sended:   PingTimes,
+		Received: recv,
+		Delay:    totalDlay / time.Duration(recv),
+	}
+	p.appendIPData(data)
+}
+
+// tcping return tcp connection status and delay
+func tcping(ip *net.IPAddr) (bool, time.Duration) {
 	startTime := time.Now()
 	fullAddress := fmt.Sprintf("%s:%d", ip.String(), TCPPort)
 	//fmt.Println(ip.String())
@@ -101,37 +125,13 @@ func (p *Ping) tcping(ip *net.IPAddr) (bool, time.Duration) {
 	return true, duration
 }
 
-//pingReceived pingTotalTime
-func (p *Ping) checkConnection(ip *net.IPAddr) (recv int, totalDelay time.Duration) {
+// checkConnection return check times and rotal delay
+func checkConnection(ip *net.IPAddr) (recv int, totalDelay time.Duration) {
 	for i := 0; i < PingTimes; i++ {
-		if ok, delay := p.tcping(ip); ok {
+		if ok, delay := tcping(ip); ok {
 			recv++
 			totalDelay += delay
 		}
 	}
 	return
-}
-
-func (p *Ping) appendIPData(data *utils.PingData) {
-	p.m.Lock()
-	defer p.m.Unlock()
-	p.csv = append(p.csv, utils.CloudflareIPData{
-		PingData: data,
-	})
-}
-
-// handle tcping
-func (p *Ping) tcpingHandler(ip *net.IPAddr) {
-	recv, totalDlay := p.checkConnection(ip)
-	p.bar.Grow(1)
-	if recv == 0 {
-		return
-	}
-	data := &utils.PingData{
-		IP:       ip,
-		Sended:   PingTimes,
-		Received: recv,
-		Delay:    totalDlay / time.Duration(recv),
-	}
-	p.appendIPData(data)
 }
