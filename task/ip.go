@@ -25,8 +25,11 @@ var (
 	IPFile = defaultInputFile
 )
 
-func randIPEndWith(num byte) byte {
+func init() {
 	rand.Seed(time.Now().UnixNano())
+}
+
+func randIPEndWith(num byte) byte {
 	return byte(rand.Intn(int(num)))
 }
 
