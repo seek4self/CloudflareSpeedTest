@@ -64,26 +64,36 @@ func speed2MB(s float64) float64 {
 	return s / 1024 / 1024
 }
 
+func checkData(delay time.Duration, speed float64) bool {
+	return (delay < utils.InputMaxDelay && delay > utils.InputMinDelay) && speed > MinSpeed
+}
+
 func testNewIP(ip string) string {
 	fmt.Println("Test old IP ...")
 	addr := &net.IPAddr{IP: net.ParseIP(ip)}
 	recv, delay := checkConnection(addr)
 	avgDelay := delay / time.Duration(recv)
 	avgSpeed := speed2MB(downloadHandler(addr))
-	fmt.Printf("Old IP delay: %s speed: %.2f MB/s\n", avgDelay, avgSpeed)
-	if (avgDelay < utils.InputMaxDelay && avgDelay > utils.InputMinDelay) || avgSpeed > MinSpeed {
+	fmt.Printf("Old IP '%s' delay: %s speed: %.2f MB/s\n", ip, avgDelay, avgSpeed)
+	if checkData(avgDelay, avgSpeed) {
 		return ip
 	}
 	fmt.Println("Test new ip ...")
-	pingData := NewPing().Run().FilterDelay()
-	speedData := TestDownloadSpeed(pingData)
-	// speedData.Print(IPv6)
-	if len(speedData) == 0 {
-		fmt.Println("No IP Found")
-		return ""
+	var newIP utils.CloudflareIPData
+	for {
+		pingData := NewPing().Run().FilterDelay()
+		speedData := TestDownloadSpeed(pingData)
+		// speedData.Print(IPv6)
+		if len(speedData) == 0 {
+			fmt.Println("No IP Found")
+			continue
+		}
+		newIP = speedData[0]
+		if checkData(newIP.Delay, newIP.DownloadSpeed) {
+			break
+		}
 	}
-	newIP := speedData[0]
-	fmt.Printf("New IP delay: %s speed: %.2f MB/s\n", newIP.Delay, speed2MB(newIP.DownloadSpeed))
+	fmt.Printf("New IP '%s' delay: %s speed: %.2f MB/s\n", newIP.IP.String(), newIP.Delay, speed2MB(newIP.DownloadSpeed))
 	return newIP.IP.String()
 }
 
