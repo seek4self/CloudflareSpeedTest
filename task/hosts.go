@@ -117,7 +117,7 @@ func replaceHosts(domain, ip string) {
 			return
 		}
 		if strings.Contains(line, domain) {
-			bytes := []byte(fmt.Sprintf("%s %s\n", ip, domain))
+			bytes := []byte(fmt.Sprintf("%-16s %s\n", ip, domain))
 			f.WriteAt(bytes, int64(pos))
 			return
 		}
