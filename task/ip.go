@@ -171,7 +171,7 @@ func getIPs() []*net.IPAddr {
 	}
 	resp, err := http.Get("https://www.cloudflare.com/" + path)
 	if err != nil {
-		log.Fatalln("get ips err")
+		log.Fatalln("get cloudflare ips err", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {

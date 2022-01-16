@@ -79,6 +79,7 @@ https://github.com/XIU2/CloudflareSpeedTest
 	flag.StringVar(&utils.Output, "o", "result.csv", "输出结果文件")
 	flag.BoolVar(&configHosts, "c", false, "配置hosts")
 	flag.StringVar(&task.Domain, "d", "localhost", "CF DNS 域名")
+	flag.BoolVar(&task.SkipOld, "s", false, "跳过检测旧IP")
 	flag.BoolVar(&printVersion, "v", false, "打印程序版本")
 	flag.Usage = func() { fmt.Print(help) }
 	flag.Parse()

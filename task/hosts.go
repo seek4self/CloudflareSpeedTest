@@ -17,7 +17,10 @@ const (
 	defaultDomain = "localhost"
 )
 
-var Domain = defaultDomain
+var (
+	Domain  = defaultDomain
+	SkipOld = false
+)
 
 func ReplaceHosts() {
 	if Domain == defaultDomain {
@@ -60,8 +63,8 @@ func readHosts(domain string) (ok bool, ip string) {
 	return
 }
 
-func speed2MB(s float64) float64 {
-	return s / 1024 / 1024
+func B2MB(s float64) float64 {
+	return s / (1 << 20)
 }
 
 func checkData(delay time.Duration, speed float64) bool {
@@ -69,14 +72,16 @@ func checkData(delay time.Duration, speed float64) bool {
 }
 
 func testNewIP(ip string) string {
-	fmt.Println("Test old IP ...")
-	addr := &net.IPAddr{IP: net.ParseIP(ip)}
-	recv, delay := checkConnection(addr)
-	avgDelay := delay / time.Duration(recv)
-	avgSpeed := speed2MB(downloadHandler(addr))
-	fmt.Printf("Old IP '%s' delay: %s speed: %.2f MB/s\n", ip, avgDelay, avgSpeed)
-	if checkData(avgDelay, avgSpeed) {
-		return ip
+	if !SkipOld {
+		fmt.Println("Test old IP ...")
+		addr := &net.IPAddr{IP: net.ParseIP(ip)}
+		recv, delay := checkConnection(addr)
+		avgDelay := delay / time.Duration(recv)
+		avgSpeed := B2MB(downloadHandler(addr))
+		fmt.Printf("Old IP '%s' delay: %s speed: %.2f MB/s\n", ip, avgDelay, avgSpeed)
+		if checkData(avgDelay, avgSpeed) {
+			return ip
+		}
 	}
 	fmt.Println("Test new ip ...")
 	var newIP utils.CloudflareIPData
@@ -93,7 +98,7 @@ func testNewIP(ip string) string {
 			break
 		}
 	}
-	fmt.Printf("New IP '%s' delay: %s speed: %.2f MB/s\n", newIP.IP.String(), newIP.Delay, speed2MB(newIP.DownloadSpeed))
+	fmt.Printf("New IP '%s' delay: %s speed: %.2f MB/s\n", newIP.IP.String(), newIP.Delay, B2MB(newIP.DownloadSpeed))
 	return newIP.IP.String()
 }
 
