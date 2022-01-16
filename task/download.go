@@ -82,9 +82,6 @@ func TestDownloadSpeed(ipSet utils.PingDelaySet) (speedSet utils.DownloadSpeedSe
 	}
 	// 按速度排序
 	sort.Sort(speedSet)
-	if ConfigV2Ray {
-		replaceAddr(speedSet[0].IP.String())
-	}
 	return
 }
 
