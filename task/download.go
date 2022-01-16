@@ -10,12 +10,10 @@ import (
 	"time"
 
 	"CloudflareSpeedTest/utils"
-
-	"github.com/VividCortex/ewma"
 )
 
 const (
-	bufferSize                     = 1024
+	bufferSize                     = 1 << 20 // MB
 	defaultURL                     = "https://cf.xiu2.xyz/Github/CloudflareSpeedTest.png"
 	defaultTimeout                 = 10 * time.Second
 	defaultDisableDownload         = false
@@ -70,7 +68,7 @@ func TestDownloadSpeed(ipSet utils.PingDelaySet) (speedSet utils.DownloadSpeedSe
 		speed := downloadHandler(ipSet[i].IP)
 		ipSet[i].DownloadSpeed = speed
 		// 在每个 IP 下载测速后，以 [下载速度下限] 条件过滤结果
-		if speed >= MinSpeed*1024*1024 {
+		if speed >= MinSpeed*(1<<20) {
 			bar.Grow(1)
 			speedSet = append(speedSet, ipSet[i]) // 高于下载速度下限时，添加到新数组中
 			if len(speedSet) == TestCount {       // 凑够满足条件的 IP 时（下载测速数量 -dn），就跳出循环
@@ -114,42 +112,23 @@ func downloadHandler(ip *net.IPAddr) float64 {
 	if response.StatusCode != 200 {
 		return 0.0
 	}
-	timeStart := time.Now()
-	timeEnd := timeStart.Add(Timeout)
-
-	contentLength := response.ContentLength
 	buffer := make([]byte, bufferSize)
-
-	var (
-		contentRead     int64 = 0
-		timeSlice             = Timeout / 100
-		timeCounter           = 1
-		lastContentRead int64 = 0
-	)
-
-	var nextTime = timeStart.Add(timeSlice * time.Duration(timeCounter))
-	e := ewma.NewMovingAverage()
-
-	for contentLength != contentRead {
-		currentTime := time.Now()
-		if currentTime.After(nextTime) {
-			timeCounter++
-			nextTime = timeStart.Add(timeSlice * time.Duration(timeCounter))
-			e.Add(float64(contentRead - lastContentRead))
-			lastContentRead = contentRead
+	timer := time.NewTimer(Timeout)
+	size, cost := 0, time.Duration(0)
+	for i := int64(0); i < response.ContentLength/bufferSize/2; i++ {
+		select {
+		case <-timer.C:
+			break
+		default:
 		}
-		if currentTime.After(timeEnd) {
+		start := time.Now()
+		n, err := io.ReadAtLeast(response.Body, buffer, bufferSize)
+		if err != nil {
 			break
 		}
-		bufferRead, err := response.Body.Read(buffer)
-		if err != nil {
-			if err != io.EOF {
-				break
-			}
-			e.Add(float64(contentRead-lastContentRead) / (float64(nextTime.Sub(currentTime)) / float64(timeSlice)))
-		}
-		contentRead += int64(bufferRead)
+		// fmt.Println("spent time", time.Since(start).Seconds(), n)
+		size += n
+		cost += time.Since(start)
 	}
-	return e.Value() / (Timeout.Seconds() / 120)
-
+	return float64(size) / cost.Seconds()
 }
