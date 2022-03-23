@@ -29,7 +29,7 @@ func ReplaceHosts() {
 	}
 	ok, ip := readHosts(Domain)
 	if !ok {
-		fmt.Println("Read old IP faild")
+		fmt.Println("Read old IP failed")
 		return
 	}
 	newIP := testNewIP(ip)
@@ -76,6 +76,10 @@ func testNewIP(ip string) string {
 		fmt.Println("Test old IP ...")
 		addr := &net.IPAddr{IP: net.ParseIP(ip)}
 		recv, delay := checkConnection(addr)
+		if recv == 0 {
+			fmt.Println("Old IP useless ...")
+			goto skip
+		}
 		avgDelay := delay / time.Duration(recv)
 		avgSpeed := B2MB(downloadHandler(addr))
 		fmt.Printf("Old IP '%s' delay: %s speed: %.2f MB/s\n", ip, avgDelay, avgSpeed)
@@ -83,6 +87,7 @@ func testNewIP(ip string) string {
 			return ip
 		}
 	}
+skip:
 	fmt.Println("Test new ip ...")
 	var newIP utils.CloudflareIPData
 	for {
