@@ -86,9 +86,9 @@ func TestDownloadSpeed(ipSet utils.PingDelaySet) (speedSet utils.DownloadSpeedSe
 }
 
 func getDialContext(ip *net.IPAddr) func(ctx context.Context, network, address string) (net.Conn, error) {
-	fakeSourceAddr := ip.String() + ":443"
+	fakeSourceAddr := fmt.Sprintf("%s:443", ip.String())
 	if IPv6 { // IPv6 需要加上 []
-		fakeSourceAddr = "[" + ip.String() + "]:443"
+		fakeSourceAddr = fmt.Sprintf("[%s]:443", ip.String())
 	}
 	return func(ctx context.Context, network, address string) (net.Conn, error) {
 		return (&net.Dialer{}).DialContext(ctx, network, fakeSourceAddr)
@@ -101,6 +101,7 @@ func downloadHandler(ip *net.IPAddr) float64 {
 		Transport: &http.Transport{DialContext: getDialContext(ip)},
 		Timeout:   Timeout,
 	}
+	// fmt.Println("test", ip.String())
 	response, err := client.Get(URL)
 	if err != nil {
 		return 0.0
@@ -109,9 +110,8 @@ func downloadHandler(ip *net.IPAddr) float64 {
 	if response.StatusCode != 200 {
 		return 0.0
 	}
-	buffer := make([]byte, bufferSize)
 	timer := time.NewTimer(Timeout)
-	size, cost := 0, time.Duration(0)
+	size, cost := int64(0), time.Duration(0)
 	for i := int64(0); i < response.ContentLength/bufferSize/2; i++ {
 		select {
 		case <-timer.C:
@@ -119,8 +119,9 @@ func downloadHandler(ip *net.IPAddr) float64 {
 		default:
 		}
 		start := time.Now()
-		n, err := io.ReadAtLeast(response.Body, buffer, bufferSize)
+		n, err := io.CopyN(io.Discard, response.Body, bufferSize)
 		if err != nil {
+			// fmt.Println("read body err", err, ip.String())
 			break
 		}
 		// fmt.Println("spent time", time.Since(start).Seconds(), n)
