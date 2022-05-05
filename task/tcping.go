@@ -29,7 +29,7 @@ type Ping struct {
 	m       *sync.Mutex
 	ips     []*net.IPAddr
 	csv     utils.PingDelaySet
-	control chan bool
+	control chan struct{}
 	bar     *utils.Bar
 }
 
@@ -53,7 +53,7 @@ func NewPing() *Ping {
 		m:       &sync.Mutex{},
 		ips:     ips,
 		csv:     make(utils.PingDelaySet, 0),
-		control: make(chan bool, Routines),
+		control: make(chan struct{}, Routines),
 		bar:     utils.NewBar(len(ips)),
 	}
 }
@@ -69,7 +69,7 @@ func (p *Ping) Run() utils.PingDelaySet {
 	fmt.Printf("开始延迟测速（模式：TCP %s，端口：%d，平均延迟上限：%v ms，平均延迟下限：%v ms)\n", ipVersion, TCPPort, utils.InputMaxDelay.Milliseconds(), utils.InputMinDelay.Milliseconds())
 	for _, ip := range p.ips {
 		p.wg.Add(1)
-		p.control <- false
+		p.control <- struct{}{}
 		go p.start(ip)
 	}
 	p.wg.Wait()
@@ -111,12 +111,7 @@ func (p *Ping) tcpingHandler(ip *net.IPAddr) {
 // tcping return tcp connection status and delay
 func tcping(ip *net.IPAddr) (bool, time.Duration) {
 	startTime := time.Now()
-	fullAddress := fmt.Sprintf("%s:%d", ip.String(), TCPPort)
-	//fmt.Println(ip.String())
-	if IPv6 { // IPv6 需要加上 []
-		fullAddress = fmt.Sprintf("[%s]:%d", ip.String(), TCPPort)
-	}
-	conn, err := net.DialTimeout("tcp", fullAddress, tcpConnectTimeout)
+	conn, err := net.DialTimeout("tcp", ipAddress(ip, TCPPort), tcpConnectTimeout)
 	if err != nil {
 		return false, 0
 	}

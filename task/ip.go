@@ -3,6 +3,7 @@ package task
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -187,4 +188,11 @@ func getIPs() []*net.IPAddr {
 		ranges.parseIP(string(v))
 	}
 	return ranges.ips
+}
+
+func ipAddress(ip *net.IPAddr, port int) string {
+	if IPv6 { // IPv6 需要加上 []
+		return fmt.Sprintf("[%s]:%d", ip.String(), port)
+	}
+	return fmt.Sprintf("%s:%d", ip.String(), port)
 }
